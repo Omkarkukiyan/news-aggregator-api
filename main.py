@@ -1,7 +1,9 @@
-import httpx
+import httpx, json, redis
 import pandas as pd
-from fastapi import FastAPI, HTTPException
-from typing import Optional
+import aioredis
+from fastapi import FastAPI, HTTPException, Depends
+from pydantic import BaseModel
+
 
 app = FastAPI()
 
@@ -12,11 +14,19 @@ API_KEY = "cd544524f61441d1982ecc8b3aaf9ca5"
 REDDIT_BASE_URL = "https://www.reddit.com/r/news/top.json"
 REDDIT_SECOND_BASE_URL = "https://www.reddit.com/r/news/search.json?q={query}&limit={limit}"
 
+redis_conn = redis.Redis(host='localhost', port=6379, db=0)
 
 @app.get("/fetch-data")
-async def api_data(query: Optional[str] = None, limit: int = 10):
+async def api_data(query: str = None, limit: int = 10):
+
     try:
-        final_merged_df = pd.DataFrame()
+        # Check if the data exists in Redis cache
+        cache_key = f"cache:{query or 'default'}:{limit}"
+        cached_data = redis_conn.get(cache_key)
+        if cached_data:
+            # If data exists in cache, return it directly
+            return {"data": json.loads(cached_data)}
+
         # Set default parameters
         params = {
             "limit": limit,
@@ -49,9 +59,6 @@ async def api_data(query: Optional[str] = None, limit: int = 10):
             # Add a "source" column with the value "reddit"
             reddit_articles_df["source"] = "reddit"
 
-            # Convert the DataFrame to a list of records (dictionaries)
-            reddit_articles_data = reddit_articles_df.to_dict(orient="records")
-
         if news_response.status_code == 200:
             # Parse the JSON response
             news_data = news_response.json()
@@ -66,11 +73,12 @@ async def api_data(query: Optional[str] = None, limit: int = 10):
             # Add a "source" column with the value "reddit"
             news_articles_df["source"] = "newapi"
             
-            # Convert the DataFrame to a list of records (dictionaries)
-            news_articles_data = news_articles_df.to_dict(orient="records")
-
         final_df = pd.concat([news_articles_df, reddit_articles_df], axis=0,ignore_index=True)
         final_data_dict = final_df.to_dict(orient="records")
+        if final_data_dict:
+            # Store the data in Redis cache for future use
+            redis_conn.set(cache_key, json.dumps(final_data_dict))
+            redis_conn.expire(cache_key, 3600)
         return {"data": final_data_dict}
     except Exception as e:
         print(e)
