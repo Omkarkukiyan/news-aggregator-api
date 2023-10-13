@@ -17,6 +17,7 @@ REDDIT_SECOND_BASE_URL = "https://www.reddit.com/r/news/search.json?q={query}&li
 async def api_data(query: Optional[str] = None, limit: int = 10):
     try:
         final_merged_df = pd.DataFrame()
+        # Set default parameters
         params = {
             "limit": limit,
             "apiKey": API_KEY,
