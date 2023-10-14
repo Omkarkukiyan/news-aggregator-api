@@ -1,18 +1,18 @@
 import httpx, json, redis
 import pandas as pd
-import aioredis
-from fastapi import FastAPI, HTTPException, Depends
-from pydantic import BaseModel
-
+from fastapi import FastAPI, HTTPException
 
 app = FastAPI()
 
-NEWS_API_LIST_URL = "http://newsapi.org/v2/top-headlines?category=general&pageSize={limit}&page=1&apiKey={api_key}"
-NEWS_API_SEARCH_URL = "http://newsapi.org/v2/everything?q={query}&pageSize={limit}&page=1&apiKey={api_key}"
-API_KEY = "cd544524f61441d1982ecc8b3aaf9ca5"
+with open('config.json') as config_file:
+    config_data = json.load(config_file)
 
-REDDIT_BASE_URL = "https://www.reddit.com/r/news/top.json"
-REDDIT_SECOND_BASE_URL = "https://www.reddit.com/r/news/search.json?q={query}&limit={limit}"
+NEWS_API_LIST_URL = config_data['NEWS_API_LIST_URL']
+NEWS_API_SEARCH_URL = config_data['NEWS_API_SEARCH_URL']
+API_KEY = config_data['API_KEY']
+
+REDDIT_BASE_URL = config_data['REDDIT_BASE_URL']
+REDDIT_SECOND_BASE_URL = config_data['REDDIT_SECOND_BASE_URL']
 
 redis_conn = redis.Redis(host='localhost', port=6379, db=0)
 
